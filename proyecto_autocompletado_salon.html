@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autocompletado del salón</title>
+<script>try{if(localStorage.getItem("autocompletado-tema")==="oscuro")document.documentElement.dataset.tema="oscuro"}catch(e){}</script>
+<style>
+:root{--pri:#5a2ee5;--rosa:#e0247a;--turq:#0a8f86;--naranja:#e8590c;--sol:#ffd43b;--azul:#4f5688;--tinta:#1f1b45;--lav:#efeaff;--borde:#ddd5ff;--rojo:#d6203b;--verde:#0a8a55}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Carlito,Calibri,"Segoe UI",system-ui,sans-serif;background:linear-gradient(135deg,#fff0e3 0%,#fde8f4 30%,#ece8ff 65%,#ddf8f2 100%);min-height:100vh;color:var(--tinta);line-height:1.5;font-size:16px}
+.cont{max-width:1160px;margin:0 auto;padding:20px 16px 32px}
+h1,h2,h3{font-family:Caladea,Cambria,Georgia,serif;color:var(--pri);line-height:1.25}
+h1{font-size:clamp(1.5rem,4vw,2.1rem)}
+h2{font-size:1.2rem;margin-bottom:8px}
+h3{font-size:1rem;margin:14px 0 6px}
+header{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+.sub{color:var(--azul);font-weight:700;font-size:.95rem}
+.curso{font-size:.85rem;color:var(--rosa);font-weight:700;letter-spacing:.06em}
+.tarjeta{background:#fff;border:1px solid var(--borde);border-radius:14px;padding:18px;margin-bottom:16px;min-width:0}
+.dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media(max-width:820px){.dos{grid-template-columns:minmax(0,1fr)}}
+.caja{position:relative}
+.caja input,.ghost{width:100%;font:1.25rem "Courier New",monospace;padding:12px 14px;border:2px solid var(--pri);border-radius:10px;letter-spacing:0}
+.caja input{background:transparent;position:relative;color:var(--tinta)}
+.caja input:focus{outline:3px solid #cfc2ff}
+.ghost{position:absolute;inset:0;border-color:transparent;color:#a3a6bd;white-space:pre;overflow:hidden;pointer-events:none;background:#fff}
+.ghost span{visibility:hidden}
+.ayuda{font-size:.85rem;color:var(--azul);margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+button{font:inherit;font-size:.9rem;cursor:pointer;border:1px solid var(--pri);background:#fff;color:var(--pri);border-radius:8px;padding:5px 12px}
+button:hover{background:var(--lav)}
+button:disabled{opacity:.4;cursor:default}
+button.pri{background:var(--pri);color:#fff}
+#sug{list-style:none;margin-top:12px}
+#sug li{display:grid;grid-template-columns:28px minmax(0,1fr) 90px 62px;gap:8px;align-items:center;padding:7px 8px;border-radius:8px;cursor:pointer}
+#sug li:hover,#sug li.sel{background:var(--lav)}
+.pos{width:24px;height:24px;border-radius:50%;background:var(--pri);color:#fff;display:grid;place-items:center;font-size:.8rem;font-weight:700}
+.nom{font-size:1.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nom b{color:var(--pri);text-decoration:underline}
+.barra{height:8px;background:var(--lav);border-radius:4px;overflow:hidden}
+.barra i{display:block;height:100%;background:var(--pri)}
+.usos{font-size:.85rem;color:var(--azul);text-align:right}
+.vacio{color:var(--rojo);padding:8px}
+.metricas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.met{background:var(--lav);border-radius:10px;padding:10px;text-align:center}
+.met b{display:block;font:700 1.8rem Georgia,serif;color:var(--pri)}
+.met span{font-size:.8rem;color:var(--azul);display:block;line-height:1.25}
+.tabla{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{border-bottom:1px solid var(--borde);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--azul);font-size:.8rem}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.camino{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:8px 0 10px;min-height:44px}
+.paso{border:1.5px solid var(--pri);border-radius:8px;padding:2px 10px;text-align:center;line-height:1.2;background:#fff}
+.paso b{display:block;font:700 1rem "Courier New",monospace}
+.paso small{font-size:.7rem;color:var(--azul)}
+.paso.mal{border-color:var(--rojo);border-style:dashed;color:var(--rojo)}
+.fila{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+#lienzo{overflow:auto;max-height:720px;border:1px solid var(--borde);border-radius:10px;background:#fbfbff}
+#arbol{display:block;margin:0 auto}
+.arista{stroke:var(--c,#5a2ee5);stroke-width:2;opacity:.6;transition:stroke .25s,stroke-width .25s}
+.nodo{cursor:pointer}
+.nodo circle{fill:#fff;stroke:var(--c,#5a2ee5);stroke-width:2;transition:fill .25s}
+.nodo.fin circle{fill:var(--c,#5a2ee5);stroke-width:2.5}.nodo.fin>text.letra{fill:#fff}
+.nodo text{font:700 12px Georgia,serif;fill:var(--tinta);text-anchor:middle;dominant-baseline:central}
+.nodo .etq{font:11px Carlito,Calibri,sans-serif;fill:var(--azul);text-anchor:start}
+.nodo.fuera{opacity:.25}.arista.fuera{opacity:.2}
+.arista.rama{opacity:1;stroke-width:3}
+.arista.cam{stroke:#ff9500;stroke-width:5;opacity:1}
+.nodo.cam circle{fill:var(--tinta);stroke:#ff9500;stroke-width:3}
+.nodo.cam>text.letra{fill:#fff}
+.nodo.act circle{fill:#c2480a}
+.nodo.top circle{stroke:#ffb800;stroke-width:4}
+.nodo.top .etq{font-weight:700;fill:var(--tinta)}
+.nodo.error circle{stroke:var(--rojo);stroke-width:4;stroke-dasharray:4 3}
+.leyenda{display:flex;flex-wrap:wrap;gap:14px;font-size:.82rem;color:var(--azul);margin-top:8px}
+.leyenda i{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid var(--pri);vertical-align:-2px;margin-right:4px}
+.pestanas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--lav);padding-bottom:10px}
+.pestanas button[aria-selected=true]{background:var(--pri);color:#fff}
+.panel[hidden]{display:none}
+.controles{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.msg{background:var(--lav);border-left:4px solid var(--pri);padding:8px 12px;border-radius:6px;min-height:42px}
+.arreglo{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.celda{border:1.5px solid var(--borde);border-radius:6px;padding:2px 7px;font-size:.85rem;text-align:center;min-width:58px}
+.celda small{display:block;color:var(--azul);font-size:.68rem}
+.celda.dentro{border-color:var(--pri)}
+.celda.medio{background:var(--sol);border-color:#e8590c}
+.celda.match{background:#cfc2ff;border-color:var(--pri)}
+.celda.descartada{opacity:.35}
+#heapSvg{display:block;width:100%;max-width:520px;margin:6px auto}
+.estado{display:inline-block;padding:3px 12px;border-radius:20px;font-weight:700;color:#fff;background:var(--azul)}
+.estado.ok{background:var(--verde)}.estado.no{background:var(--rojo)}
+code{font-family:"Courier New",monospace;background:var(--lav);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.agregar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.agregar input{font:inherit;padding:6px 10px;border:1px solid var(--pri);border-radius:8px;flex:1 1 200px;min-width:0}
+.palabras{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.palabras button{display:flex;justify-content:space-between;text-align:left}
+footer{background:var(--pri);color:#fff;border-radius:14px;padding:22px;text-align:center}
+footer h2{color:#fff}
+footer ul{list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:12px 0}
+footer li{background:#fff;color:var(--pri);border-radius:30px;padding:7px 18px;font-weight:700}
+footer p{font-size:.9rem;opacity:.9}
+/* ---------- Color ---------- */
+header{position:relative;overflow:hidden;padding:24px;border-radius:20px;background:linear-gradient(110deg,#3d1fb8,#8b2fd1 45%,#d6246e 75%,#d9480f);box-shadow:0 10px 28px rgba(90,46,229,.28)}
+header::after{content:"";position:absolute;right:-40px;top:-70px;width:220px;height:220px;border-radius:50%;border:28px solid rgba(255,212,59,.35)}
+header>div{position:relative;z-index:1}
+header h1,header .sub{color:#fff}
+header .curso{color:var(--sol)}
+.tarjeta{border-top:6px solid var(--pri);box-shadow:0 6px 20px rgba(61,31,184,.09)}
+.dos .tarjeta:first-child{border-top-color:var(--rosa)}
+.dos .tarjeta:nth-child(2){border-top-color:var(--turq)}
+.dos+.tarjeta+.tarjeta{border-top-color:var(--naranja)}
+.dos .tarjeta:first-child h2,.dos .tarjeta:first-child h3{color:#b81463}
+.dos .tarjeta:nth-child(2) h2,.dos .tarjeta:nth-child(2) h3{color:#06756e}
+.caja input{border-color:var(--rosa)}
+.caja .ghost{border-color:transparent}
+.caja input:focus{outline:4px solid #ffc4de}
+.chips button{border:0;color:#fff;font-weight:700;background:var(--pri)}
+.chips button:nth-child(6n+2){background:var(--rosa)}
+.chips button:nth-child(6n+3){background:#c2480a}
+.chips button:nth-child(6n+4){background:var(--turq)}
+.chips button:nth-child(6n+5){background:#1766d1}
+.chips button:nth-child(6n){background:#8b2fd1}
+.chips button:hover{filter:brightness(1.12)}
+#sug li:nth-child(1){--r:#d6246e}
+#sug li:nth-child(2){--r:#c2480a}
+#sug li:nth-child(3){--r:#8b2fd1}
+#sug li:nth-child(4){--r:#1766d1}
+#sug li:nth-child(5){--r:#087f77}
+#sug .pos,#sug .barra i{background:var(--r)}
+#sug .nom b{color:var(--r)}
+.met{color:#fff;background:linear-gradient(140deg,#4a22cf,#7c3aed)}
+.met:nth-child(2){background:linear-gradient(140deg,#b3125f,#e0247a)}
+.met:nth-child(3){background:linear-gradient(140deg,#a83c06,#d9540b)}
+.met b,.met span{color:#fff}
+.pri,button.pri{background:linear-gradient(100deg,var(--pri),var(--rosa));border-color:transparent}
+button.pri:hover{filter:brightness(1.12)}
+.pestanas button[aria-selected=true]{background:linear-gradient(100deg,var(--pri),var(--rosa));border-color:transparent}
+.msg{background:#fff6d1;border-left-color:var(--naranja)}
+footer{background:linear-gradient(110deg,#3d1fb8,#8b2fd1 45%,#b81463 75%,#a83c06)}
+footer li:nth-child(1){border-bottom:5px solid var(--sol)}
+footer li:nth-child(2){border-bottom:5px solid #2ee6c8}
+footer li:nth-child(3){border-bottom:5px solid #ff7ab8}
+/* ---------- Me gusta y modo oscuro ---------- */
+header{flex-wrap:wrap}
+.acciones{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+.acciones button{background:#fff;color:#3d1fb8;border:2px solid transparent;border-radius:30px;padding:7px 16px;font-weight:700;font-size:1rem}
+.acciones button:hover{background:#fff;border-color:var(--sol)}
+.acciones button:focus-visible{outline:3px solid var(--sol);outline-offset:2px}
+#like[aria-pressed=true],#like[aria-pressed=true]:hover{background:#c8165f;color:#fff;border-color:#fff}
+#corazon{display:inline-block;font-size:1.15rem;line-height:1}
+#corazon.latido{animation:latido .5s ease}
+@keyframes latido{40%{transform:scale(1.7)}70%{transform:scale(.9)}}
+@media(prefers-reduced-motion:reduce){#corazon.latido{animation:none}}
+:root[data-tema=oscuro]{color-scheme:dark;--pri:#b8a2ff;--rosa:#ff6fae;--turq:#2fd6c6;--azul:#b0b6e6;--tinta:#efecff;--lav:#2d2860;--borde:#3d376f;--rojo:#ff7b8e;--panel:#1b1740}
+[data-tema=oscuro] body{background:linear-gradient(135deg,#0e0b26 0%,#1d0f33 35%,#121438 70%,#071f2a 100%)}
+[data-tema=oscuro] .tarjeta,[data-tema=oscuro] .tarjeta button:not(.pri):not([aria-selected=true]),[data-tema=oscuro] .paso,[data-tema=oscuro] .ghost{background:var(--panel)}
+[data-tema=oscuro] .caja{background:var(--panel);border-radius:10px}
+[data-tema=oscuro] .caja .ghost{color:#777ba8}
+[data-tema=oscuro] .tarjeta button:not(.pri):not([aria-selected=true]):hover{background:var(--lav)}
+[data-tema=oscuro] .tarjeta .chips button:nth-child(n){color:#fff;background:#5a2ee5}
+[data-tema=oscuro] .tarjeta .chips button:nth-child(6n+2){background:#c8165f}
+[data-tema=oscuro] .tarjeta .chips button:nth-child(6n+3){background:#b5430a}
+[data-tema=oscuro] .tarjeta .chips button:nth-child(6n+4){background:#087a72}
+[data-tema=oscuro] .tarjeta .chips button:nth-child(6n+5){background:#1766d1}
+[data-tema=oscuro] .tarjeta .chips button:nth-child(6n){background:#8b2fd1}
+[data-tema=oscuro] button.pri,[data-tema=oscuro] .pestanas button[aria-selected=true]{color:#fff;background:linear-gradient(100deg,#5a2ee5,#c8165f)}
+[data-tema=oscuro] .dos .tarjeta:first-child h2,[data-tema=oscuro] .dos .tarjeta:first-child h3{color:#ff7ab8}
+[data-tema=oscuro] .dos .tarjeta:nth-child(2) h2,[data-tema=oscuro] .dos .tarjeta:nth-child(2) h3{color:#3fe0cf}
+[data-tema=oscuro] #sug .nom b{color:color-mix(in srgb,var(--r) 50%,#fff)}
+[data-tema=oscuro] #lienzo{background:#120f2e}
+[data-tema=oscuro] .nodo circle{fill:#1b1740;stroke:color-mix(in srgb,var(--c,#5a2ee5) 60%,#fff)}
+[data-tema=oscuro] .nodo.fin circle{fill:var(--c)}
+[data-tema=oscuro] .nodo.cam circle{fill:#fff;stroke:#ff9500}
+[data-tema=oscuro] .nodo.cam>text.letra{fill:#1f1b45}
+[data-tema=oscuro] .nodo.act circle{fill:#c2480a}
+[data-tema=oscuro] .nodo.act>text.letra{fill:#fff}
+[data-tema=oscuro] .nodo.top circle{stroke:#ffd43b}
+[data-tema=oscuro] .nodo.error circle{stroke:var(--rojo)}
+[data-tema=oscuro] .arista{stroke:color-mix(in srgb,var(--c,#5a2ee5) 70%,#fff)}
+[data-tema=oscuro] .arista.cam{stroke:#ff9500}
+[data-tema=oscuro] .msg{background:#3a2f16}
+[data-tema=oscuro] .celda.medio{background:#ffd43b;color:#1f1b45}
+[data-tema=oscuro] .celda.medio small{color:#1f1b45}
+[data-tema=oscuro] .celda.match{background:#4a3a9e}
+[data-tema=oscuro] .estado{background:#4f5688}
+[data-tema=oscuro] .estado.ok{background:#0a7a4c}
+[data-tema=oscuro] .estado.no{background:#b81d34}
+[data-tema=oscuro] .agregar input{background:#120f2e;color:var(--tinta)}
+[data-tema=oscuro] #heapSvg>text:only-child{fill:var(--azul)}
+[data-tema=oscuro] .nodo.fuera{opacity:.45}[data-tema=oscuro] .arista.fuera{opacity:.3}
+[data-tema=oscuro] footer li{background:#1b1740;color:#fff}
+[data-tema=oscuro] .leyenda span:first-child i{background:#fff!important}
+</style>
+</head>
+<body>
+<div class="cont">
+<header>
+  <div>
+    <div class="curso">Estructuras Discretas (CC0304) · UNMSM · FISI</div>
+    <h1>Autocompletado del salón</h1>
+    <div class="sub">Árboles de prefijos, búsqueda binaria y montículos (S10) · Autómatas (S12)</div>
+  </div>
+  <div class="acciones">
+    <button type="button" id="like" aria-pressed="false"><span id="corazon" aria-hidden="true">♡</span> Me gusta · <span id="nLikes">0</span></button>
+    <button type="button" id="tema">🌙 Modo oscuro</button>
+  </div>
+</header>
+
+<div class="dos">
+  <section class="tarjeta">
+    <h2>Buscador</h2>
+    <div class="caja">
+      <div class="ghost" id="ghost" aria-hidden="true"></div>
+      <input id="q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="30" aria-label="Escribe un nombre" aria-controls="sug">
+    </div>
+    <div class="ayuda">Escribe un nombre. <b>Tab</b> completa, <b>↑ ↓</b> eligen y <b>Enter</b> (o clic) suma un uso.</div>
+    <div class="chips" id="chips"></div>
+    <h3>Las 5 sugerencias más usadas</h3>
+    <ol id="sug"></ol>
+    <div class="ayuda" id="aviso" role="status">Los usos iniciales son datos de ejemplo.</div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>Contador de comparaciones</h2>
+    <div class="metricas">
+      <div class="met"><b id="mTrie">0</b><span>en el trie (letra contra letra)</span></div>
+      <div class="met"><b id="mHeap">0</b><span>en el montículo (prioridades)</span></div>
+      <div class="met"><b id="mTotal">0</b><span>total de esta consulta</span></div>
+    </div>
+    <h3>Localizar el prefijo: tres métodos</h3>
+    <div class="tabla"><table>
+      <thead><tr><th>Método</th><th class="n">Claves comparadas</th><th class="n">Letras comparadas</th><th>Costo</th></tr></thead>
+      <tbody id="metodos"></tbody>
+    </table></div>
+    <div class="ayuda" id="resumen"></div>
+    <div class="controles">
+      <span>Acumulado de la sesión (trie + montículo): <b id="mAcum">0</b></span>
+      <button id="resetAcum">Reiniciar contador</button>
+    </div>
+  </section>
+</div>
+
+<section class="tarjeta">
+  <div class="fila">
+    <h2>El árbol de prefijos por dentro</h2>
+    <div class="controles">
+      <button id="menos" aria-label="Alejar">−</button>
+      <button id="mas" aria-label="Acercar">+</button>
+      <button id="ajustar">Ver completo</button>
+      <button id="animar" class="pri">▶ Animar escritura</button>
+    </div>
+  </div>
+  <div class="camino" id="camino"></div>
+  <div id="lienzo"><svg id="arbol" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Árbol de prefijos"></svg></div>
+  <div class="leyenda">
+    <span><i style="background:#1f1b45;border-color:#ff9500"></i>Camino recorrido</span>
+    <span><i style="background:#1766d1;border-color:#1766d1"></i>Fin de palabra (cada rama tiene su color)</span>
+    <span><i style="border-color:#ffb800;border-width:3px"></i>En el top 5</span>
+    <span><i style="border-color:#d6203b;border-style:dashed"></i>Sin transición</span>
+    <span>Toca un nodo para escribir su prefijo.</span>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="pestanas" role="tablist">
+    <button role="tab" data-p="pHeap" aria-selected="true">Montículo (top 5)</button>
+    <button role="tab" data-p="pBin" aria-selected="false">Búsqueda binaria</button>
+    <button role="tab" data-p="pAut" aria-selected="false">Autómata</button>
+    <button role="tab" data-p="pLista" aria-selected="false">Lista de palabras</button>
+    <button role="tab" data-p="pTeo" aria-selected="false">Cómo funciona</button>
+  </div>
+
+  <div class="panel" id="pHeap">
+    <h2>Montículo mínimo de tamaño 5</h2>
+    <p>La raíz es la <b>peor</b> de las 5 mejores. Una candidata nueva solo entra si le gana a la raíz. En empate de usos gana el orden alfabético.</p>
+    <div class="controles" id="ctlHeap"></div>
+    <div class="msg" id="msgHeap"></div>
+    <svg id="heapSvg" viewBox="0 0 520 220" role="img" aria-label="Montículo"></svg>
+    <div class="arreglo" id="arrHeap"></div>
+  </div>
+
+  <div class="panel" id="pBin" hidden>
+    <h2>Búsqueda binaria sobre la lista ordenada</h2>
+    <p>Dos búsquedas hallan el inicio y el fin del bloque de palabras que comienzan con el prefijo.</p>
+    <div class="controles" id="ctlBin"></div>
+    <div class="msg" id="msgBin"></div>
+    <div class="arreglo" id="arrBin"></div>
+  </div>
+
+  <div class="panel" id="pAut" hidden>
+    <h2>El trie como autómata finito determinista</h2>
+    <p>Cada nodo es un estado y cada arista una transición. Se completa con un estado muerto <code>q∅</code> para las letras sin arista.</p>
+    <h3>Definición M = (Q, Σ, δ, q0, F)</h3>
+    <div id="defAut"></div>
+    <h3>Lectura de la cadena escrita</h3>
+    <p id="estadoAut"></p>
+    <div class="tabla"><table>
+      <thead><tr><th>Paso</th><th>Símbolo</th><th>Transición</th><th>¿Estado de aceptación?</th></tr></thead>
+      <tbody id="trazaAut"></tbody>
+    </table></div>
+    <h3>Transiciones disponibles desde el estado actual</h3>
+    <p id="salidas"></p>
+  </div>
+
+  <div class="panel" id="pLista" hidden>
+    <h2>Palabras guardadas (<span id="nPal"></span>)</h2>
+    <p>Agrega nombres o cursos: se insertan en el trie al instante. Toca una palabra para buscarla.</p>
+    <form class="agregar" id="fAdd">
+      <input id="nueva" maxlength="30" placeholder="Nuevo nombre o curso" aria-label="Nueva palabra">
+      <button class="pri" type="submit">Insertar</button>
+      <button type="button" id="ceros">Usos en cero</button>
+      <button type="button" id="restaurar">Restaurar lista original</button>
+    </form>
+    <div class="ayuda" id="avisoAdd" role="status"></div>
+    <div class="palabras" id="lista"></div>
+  </div>
+
+  <div class="panel" id="pTeo" hidden>
+    <h2>Cómo funciona</h2>
+    <h3>1. Árbol de prefijos (trie)</h3>
+    <p>Árbol enraizado en el que cada arista lleva una letra. El camino desde la raíz forma un prefijo, y las palabras con prefijo común comparten ese camino. Los hijos se guardan en orden alfabético.</p>
+    <h3>2. Montículo</h3>
+    <p>Se recorre el subárbol del prefijo en profundidad y cada palabra pasa por un montículo mínimo de tamaño k = 5. Al final se extraen las 5 y quedan ordenadas de mayor a menor uso.</p>
+    <h3>3. Complejidad</h3>
+    <div class="tabla"><table>
+      <thead><tr><th>Operación</th><th>Costo en el peor caso</th></tr></thead>
+      <tbody>
+        <tr><td>Insertar una palabra de longitud L en el trie</td><td>O(L · |Σ|)</td></tr>
+        <tr><td>Localizar un prefijo de longitud m en el trie</td><td>O(m · |Σ|), no depende del número de palabras n</td></tr>
+        <tr><td>Recorrer el subárbol del prefijo</td><td>O(s), con s = nodos del subárbol</td></tr>
+        <tr><td>Elegir las k mejores entre c candidatas</td><td>O(c · log k)</td></tr>
+        <tr><td>Búsqueda binaria del prefijo</td><td>O(m · log n)</td></tr>
+        <tr><td>Búsqueda lineal del prefijo</td><td>O(m · n)</td></tr>
+      </tbody>
+    </table></div>
+    <h3>4. Qué se cuenta</h3>
+    <p><b>Trie:</b> cada hijo cuya letra se examina (el recorrido se detiene si ya pasó la letra buscada). <b>Montículo:</b> cada comparación de prioridad entre dos palabras. <b>Binaria y lineal:</b> cada palabra comparada con el prefijo y las letras revisadas en ella. Recorrer el subárbol no cuenta como comparación. No se distinguen mayúsculas ni tildes.</p>
+  </div>
+</section>
+
+<footer>
+  <h2>Integrantes</h2>
+  <ul>
+    <li>Yosue Humberto Fura Almanza</li>
+    <li>Danny Junior Lopez Bonifacio</li>
+    <li>Cristian Bryan Huamán Chapoñan</li>
+  </ul>
+  <p>Estructuras Discretas (CC0304) · UNMSM · FISI</p>
+</footer>
+</div>
+
+<script>
+"use strict";
+const K = 5;
+/* un color por cada letra inicial (rama del árbol) */
+const COLORES = ["#d6246e","#1766d1","#087f77","#c2480a","#8b2fd1","#2f7d1f","#b3261e","#0b7296","#9a6200","#4a3ad6"];
+/* [palabra, usos de ejemplo] */
+const BASE = [["Abel",14],["Miguel",27],["Jorge",19],["Cristian",33],["Joaquin",11],["Jose",30],["Daniel",25],["Danny",35],["Carlos",22],["Lucero",16],["Lucas",21],["Loris",6],["Camila",28],["Angelo",12],["Andres",18],["Ana",24],["Jhosney",9],["David",23],["Danaly",13],["Leonardo",17],["Lesly",10],["Santiago",26],["Jayco",7],["Adrian",20],["Javier",15],["Alexandra",29],["Jair",8],["Anderson",31],["Jhoseph",5],["Yosue",34],["Piero",32]];
+const CLAVE = "autocompletado-salon-v1";
+const $ = id => document.getElementById(id);
+
+function normalizar(s){
+  return s.toLowerCase().replace(/ñ/g,"\u0001").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\u0001/g,"ñ");
+}
+const valida = s => typeof s === "string" && s.length <= 30 && /^[a-záéíóúüñ]+( [a-záéíóúüñ]+)*$/i.test(s);
+const ver = c => c === " " ? "␣" : c;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ---------- Datos ---------- */
+const original = () => BASE.map(([w,f]) => ({w, key:normalizar(w), f}));
+function cargar(){
+  try{
+    const d = JSON.parse(localStorage.getItem(CLAVE));
+    if(Array.isArray(d) && d.length){
+      return d.filter(x => x && valida(x.w) && Number.isInteger(x.f) && x.f >= 0).map(x => ({w:x.w, key:normalizar(x.w), f:x.f}));
+    }
+  }catch(e){}
+  return original();
+}
+function guardar(){ try{ localStorage.setItem(CLAVE, JSON.stringify(palabras.map(({w,f}) => ({w,f})))); }catch(e){} }
+let palabras = cargar();
+
+/* ---------- Trie ---------- */
+let raiz, nodos, ordenadas;
+const nuevoNodo = (ch, padre) => ({ch, padre, hijos:[], pal:null, prof:padre ? padre.prof+1 : 0});
+function insertar(p){
+  let n = raiz;
+  for(const c of p.key){
+    let i = 0;
+    while(i < n.hijos.length && n.hijos[i].ch < c) i++;
+    if(!n.hijos[i] || n.hijos[i].ch !== c) n.hijos.splice(i, 0, nuevoNodo(c, n));
+    n = n.hijos[i];
+  }
+  n.pal = p;
+}
+function construir(){
+  raiz = nuevoNodo("", null);
+  palabras.forEach(insertar);
+  /* numeración de estados en anchura: q0, q1, ... */
+  nodos = [raiz];
+  for(let i = 0; i < nodos.length; i++){ nodos[i].id = i; nodos.push(...nodos[i].hijos); }
+  ordenadas = [...palabras].sort((a,b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+}
+function recorrer(prefijo){
+  let n = raiz, total = 0;
+  const pasos = [];
+  for(const c of prefijo){
+    let comps = 0, sig = null;
+    for(const h of n.hijos){
+      comps++;
+      if(h.ch === c){ sig = h; break; }
+      if(h.ch > c) break;
+    }
+    total += comps;
+    pasos.push({c, desde:n, hacia:sig, comps});
+    if(!sig) return {nodo:null, ultimo:n, pasos, comps:total};
+    n = sig;
+  }
+  return {nodo:n, ultimo:n, pasos, comps:total};
+}
+function candidatas(nodo){
+  const lista = []; let visitados = 0;
+  (function dfs(n){ visitados++; if(n.pal) lista.push(n.pal); n.hijos.forEach(dfs); })(nodo);
+  return {lista, visitados};
+}
+
+/* ---------- Montículo mínimo de tamaño K ---------- */
+function topK(lista){
+  const h = [], traza = []; let comps = 0;
+  const mejor = (a,b) => { comps++; return a.f > b.f || (a.f === b.f && a.key < b.key); };
+  const foto = (msg, foco) => traza.push({msg, foco, comps, h:h.map(p => ({w:p.w, f:p.f, key:p.key}))});
+  const swap = (i,j) => { [h[i],h[j]] = [h[j],h[i]]; };
+  function subir(i){
+    while(i > 0){ const p = (i-1) >> 1; if(!mejor(h[p], h[i])) break; swap(i,p); i = p; }
+  }
+  function bajar(i){
+    for(;;){
+      let m = i; const l = 2*i+1, r = 2*i+2;
+      if(l < h.length && mejor(h[m], h[l])) m = l;
+      if(r < h.length && mejor(h[m], h[r])) m = r;
+      if(m === i) break;
+      swap(i,m); i = m;
+    }
+  }
+  for(const p of lista){
+    if(h.length < K){
+      h.push(p); subir(h.length-1);
+      foto(`Se inserta ${p.w} (${p.f} usos): el montículo aún tenía espacio.`, p.key);
+    }else{
+      const raizAnt = h[0];
+      if(mejor(p, raizAnt)){
+        h[0] = p; bajar(0);
+        foto(`${p.w} (${p.f}) le gana a la raíz ${raizAnt.w} (${raizAnt.f}): la reemplaza y se hunde.`, p.key);
+      }else foto(`${p.w} (${p.f}) no supera a la raíz ${raizAnt.w} (${raizAnt.f}): se descarta.`, null);
+    }
+  }
+  const res = [];
+  while(h.length){
+    const t = h[0], u = h.pop();
+    if(h.length){ h[0] = u; bajar(0); }
+    res.unshift(t);
+    foto(`Extracción: sale ${t.w} (${t.f}) y ocupa el puesto ${h.length+1} del ranking.`, null);
+  }
+  return {res, traza, comps};
+}
+
+/* ---------- Búsqueda binaria y lineal ---------- */
+function cmpPrefijo(key, p){
+  let letras = 0;
+  for(let i = 0; i < p.length; i++){
+    if(i >= key.length) return {r:-1, letras};
+    letras++;
+    if(key[i] !== p[i]) return {r:key[i] < p[i] ? -1 : 1, letras};
+  }
+  return {r:0, letras};
+}
+function binaria(p){
+  const traza = []; let claves = 0, letras = 0;
+  function limite(superior){
+    let lo = 0, hi = ordenadas.length;
+    while(lo < hi){
+      const mid = (lo+hi) >> 1, c = cmpPrefijo(ordenadas[mid].key, p);
+      claves++; letras += c.letras;
+      const derecha = superior ? c.r <= 0 : c.r < 0;
+      const rel = c.r < 0 ? "está antes del prefijo" : c.r > 0 ? "está después del prefijo" : "empieza con el prefijo";
+      traza.push({lo, hi, mid, msg:`${superior ? "Límite final" : "Límite inicial"}: lo=${lo}, hi=${hi}, mid=${mid}. «${ordenadas[mid].w}» ${rel}, se busca a la ${derecha ? "derecha" : "izquierda"}.`});
+      if(derecha) lo = mid+1; else hi = mid;
+    }
+    return lo;
+  }
+  const ini = limite(false), fin = limite(true);
+  traza.push({ini, fin, msg: fin > ini ? `Resultado: ${fin-ini} palabra(s) en las posiciones ${ini} a ${fin-1}. Comparaciones: ${claves}.` : `Resultado: ninguna palabra empieza con ese prefijo. Comparaciones: ${claves}.`});
+  return {traza, claves, letras, ini, fin};
+}
+function lineal(p){
+  let letras = 0;
+  for(const x of ordenadas) letras += cmpPrefijo(x.key, p).letras;
+  return {claves:ordenadas.length, letras};
+}
+
+/* ---------- Estado de la interfaz ---------- */
+let sel = -1, actual = null, acumulado = 0, iHeap = 0, iBin = 0, escala = 1, timer = null;
+const consulta = () => normalizar($("q").value.replace(/^\s+/,""));
+
+function actualizar(contar){
+  const p = consulta();
+  const t = recorrer(p);
+  const cand = t.nodo ? candidatas(t.nodo) : {lista:[], visitados:0};
+  const h = topK(cand.lista);
+  const b = binaria(p), l = lineal(p);
+  actual = {p, t, cand, h, b, l};
+  sel = -1;
+  if(contar) acumulado += t.comps + h.comps;
+  iHeap = Math.max(0, cand.lista.length-1); /* montículo lleno, antes de extraer */
+  iBin = b.traza.length-1;
+  pintarSugerencias(); pintarMetricas(); pintarCamino(); marcarArbol(); pintarHeap(); pintarBin(); pintarAutomata();
+}
+
+function pintarSugerencias(){
+  const {h, p} = actual, ul = $("sug");
+  const max = Math.max(1, ...h.res.map(x => x.f));
+  ul.innerHTML = h.res.length ? h.res.map((x,i) =>
+    `<li data-i="${i}" class="${i === sel ? "sel" : ""}"><span class="pos">${i+1}</span><span class="nom"><b>${esc(x.w.slice(0,p.length))}</b>${esc(x.w.slice(p.length))}</span><span class="barra"><i style="width:${100*x.f/max}%"></i></span><span class="usos">${x.f} usos</span></li>`).join("")
+    : `<li class="vacio" style="display:block;cursor:default">No hay palabras que empiecen con «${esc($("q").value)}».</li>`;
+  const v = $("q").value;
+  const prim = h.res[0];
+  $("ghost").innerHTML = prim && v && normalizar(v) === p ? `<span>${esc(v)}</span>${esc(prim.w.slice(v.length))}` : "";
+  $("q").placeholder = "";
+}
+function pintarMetricas(){
+  const {t, h, b, l, cand} = actual;
+  $("mTrie").textContent = t.comps;
+  $("mHeap").textContent = h.comps;
+  $("mTotal").textContent = t.comps + h.comps;
+  $("mAcum").textContent = acumulado;
+  $("metodos").innerHTML =
+    `<tr><td><b>Trie</b></td><td class="n">${t.comps}</td><td class="n">${t.comps}</td><td>O(m·|Σ|)</td></tr>
+     <tr><td>Búsqueda binaria</td><td class="n">${b.claves}</td><td class="n">${b.letras}</td><td>O(m·log n)</td></tr>
+     <tr><td>Búsqueda lineal</td><td class="n">${l.claves}</td><td class="n">${l.letras}</td><td>O(m·n)</td></tr>`;
+  $("resumen").textContent = `n = ${palabras.length} palabras · m = ${actual.p.length} letras · candidatas = ${cand.lista.length} · nodos visitados en el subárbol = ${cand.visitados}`;
+}
+function pintarCamino(){
+  const {t} = actual;
+  let s = `<span class="paso"><b>raíz</b><small>q0</small></span>`;
+  for(const x of t.pasos)
+    s += `<span>→</span><span class="paso ${x.hacia ? "" : "mal"}"><b>${esc(ver(x.c))}</b><small>${x.hacia ? "q"+x.hacia.id : "q∅"} · ${x.comps} comp.</small></span>`;
+  $("camino").innerHTML = s;
+}
+
+/* ---------- Dibujo del árbol ---------- */
+const DX = 36, DY = 62, R = 13;
+let anchoSvg = 0, altoSvg = 0;
+function dibujarArbol(){
+  let hoja = 0, prof = 0, largo = 0;
+  (function ubicar(n){
+    n.y = 28 + n.prof*DY; prof = Math.max(prof, n.prof);
+    if(n.pal) largo = Math.max(largo, n.pal.w.length);
+    n.hijos.forEach(ubicar);
+    n.x = n.hijos.length ? (n.hijos[0].x + n.hijos[n.hijos.length-1].x)/2 : 26 + DX*hoja++;
+  })(raiz);
+  anchoSvg = Math.max(320, 52 + DX*Math.max(0, hoja-1));
+  altoSvg = 56 + prof*DY + largo*6 + 12;
+  const color = new Map([[raiz, "#5a2ee5"]]);
+  raiz.hijos.forEach((h,i) => (function pintar(n){ color.set(n, COLORES[i % COLORES.length]); n.hijos.forEach(pintar); })(h));
+  let aristas = "", circulos = "";
+  for(const n of nodos){
+    if(n.padre) aristas += `<line class="arista" style="--c:${color.get(n)}" id="a${n.id}" x1="${n.padre.x}" y1="${n.padre.y+R}" x2="${n.x}" y2="${n.y-R}"/>`;
+    const etiqueta = n.pal && !n.hijos.length ? `<text class="etq" transform="translate(${n.x},${n.y+R+6}) rotate(90)" dominant-baseline="central">${esc(n.pal.w)}</text>` : "";
+    circulos += `<g class="nodo ${n.pal ? "fin" : ""}" id="n${n.id}" data-id="${n.id}" style="--c:${color.get(n)}"><title>q${n.id}: ${esc(prefijoDe(n) || "raíz")}${n.pal ? " · " + esc(n.pal.w) : ""}</title><circle cx="${n.x}" cy="${n.y}" r="${R}"/><text class="letra" x="${n.x}" y="${n.y}">${n.padre ? esc(ver(n.ch)) : "•"}</text>${etiqueta}</g>`;
+  }
+  const svg = $("arbol");
+  svg.setAttribute("viewBox", `0 0 ${anchoSvg} ${altoSvg}`);
+  svg.innerHTML = aristas + circulos;
+  aplicarEscala();
+}
+function prefijoDe(n){ let s = ""; for(; n.padre; n = n.padre) s = n.ch + s; return s; }
+function aplicarEscala(){ $("arbol").setAttribute("width", anchoSvg*escala); $("arbol").setAttribute("height", altoSvg*escala); }
+function ajustar(){ escala = Math.min(1.2, ($("lienzo").clientWidth - 4)/anchoSvg); aplicarEscala(); }
+function marcarArbol(){
+  const {t, p, h} = actual;
+  const camino = new Set([raiz, ...t.pasos.filter(x => x.hacia).map(x => x.hacia)]);
+  const rama = new Set();
+  if(t.nodo) (function d(n){ rama.add(n); n.hijos.forEach(d); })(t.nodo);
+  const tops = new Set(h.res.map(x => x.key));
+  for(const n of nodos){
+    const g = $("n"+n.id), a = $("a"+n.id), enC = camino.has(n), enR = rama.has(n);
+    const fuera = p.length > 0 && !enC && !enR;
+    g.classList.toggle("cam", enC && p.length > 0);
+    g.classList.toggle("act", p.length > 0 && n === t.nodo);
+    g.classList.toggle("error", !t.nodo && n === t.ultimo);
+    g.classList.toggle("top", !!n.pal && tops.has(n.pal.key) && !(enC && p.length > 0));
+    g.classList.toggle("fuera", fuera);
+    if(a){
+      a.classList.toggle("cam", enC);
+      a.classList.toggle("rama", enR && !enC && p.length > 0);
+      a.classList.toggle("fuera", fuera);
+      a.style.transitionDelay = enC ? (n.prof-1)*80 + "ms" : "0ms";
+    }
+  }
+  const foco = t.nodo || t.ultimo, box = $("lienzo");
+  box.scrollTo({left:foco.x*escala - box.clientWidth/2, top:foco.y*escala - box.clientHeight/2, behavior:"smooth"});
+}
+
+/* ---------- Paneles paso a paso ---------- */
+function controles(id, i, n, cambiar){
+  const c = $(id);
+  c.innerHTML = `<button data-a="ini">⏮ Inicio</button><button data-a="ant">◀ Anterior</button><button data-a="sig">Siguiente ▶</button><button data-a="fin">Final ⏭</button><span>Paso ${n ? i+1 : 0} de ${n}</span>`;
+  c.querySelectorAll("button").forEach(b => {
+    const a = b.dataset.a;
+    b.disabled = n === 0 || ((a === "ini" || a === "ant") ? i === 0 : i === n-1);
+    b.onclick = () => cambiar(a === "ini" ? 0 : a === "fin" ? n-1 : a === "ant" ? i-1 : i+1);
+  });
+}
+function pintarHeap(){
+  const tr = actual.h.traza, s = tr[iHeap];
+  controles("ctlHeap", iHeap, tr.length, j => { iHeap = j; pintarHeap(); });
+  $("msgHeap").textContent = s ? `${s.msg} Comparaciones acumuladas: ${s.comps}.` : "No hay candidatas para este prefijo.";
+  const h = s ? s.h : [];
+  const pos = [[260,35],[140,110],[380,110],[75,185],[205,185]];
+  let svg = "";
+  h.forEach((_,i) => { if(i){ const p = pos[(i-1)>>1]; svg += `<line x1="${p[0]}" y1="${p[1]}" x2="${pos[i][0]}" y2="${pos[i][1]}" stroke="#8b2fd1" stroke-width="3"/>`; } });
+  h.forEach((x,i) => {
+    const [cx,cy] = pos[i];
+    svg += `<rect x="${cx-56}" y="${cy-25}" width="112" height="50" rx="14" fill="${x.key === s.foco ? "#ffd43b" : ["#ffe0ee","#ece3ff","#dcebff","#d5f7ef","#ffe8d6"][i]}" stroke="${["#d6246e","#8b2fd1","#1766d1","#087f77","#c2480a"][i]}" stroke-width="3"/><text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="${x.w.length > 12 ? 11 : 15}" font-weight="700" fill="#1f1b45">${esc(x.w)}</text><text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="12" fill="#4f5688">${x.f} usos · [${i}]</text>`;
+  });
+  if(!h.length) svg = `<text x="260" y="110" text-anchor="middle" font-size="16" fill="#4f5688">Montículo vacío${actual.h.res.length ? ": ranking completo" : ""}</text>`;
+  $("heapSvg").innerHTML = svg;
+  $("arrHeap").innerHTML = h.map((x,i) => `<div class="celda dentro"><small>[${i}]</small>${esc(x.w)} (${x.f})</div>`).join("");
+}
+function pintarBin(){
+  const tr = actual.b.traza, s = tr[iBin];
+  controles("ctlBin", iBin, tr.length, j => { iBin = j; pintarBin(); });
+  $("msgBin").textContent = s.msg;
+  $("arrBin").innerHTML = ordenadas.map((x,i) => {
+    let c = "";
+    if(s.mid !== undefined) c = i === s.mid ? "medio" : (i >= s.lo && i < s.hi) ? "dentro" : "descartada";
+    else c = (i >= s.ini && i < s.fin) ? "match" : "descartada";
+    return `<div class="celda ${c}"><small>${i}</small>${esc(x.w)}</div>`;
+  }).join("");
+}
+function pintarAutomata(){
+  const {t, p} = actual;
+  const sigma = [...new Set(nodos.slice(1).map(n => n.ch))].sort();
+  const F = nodos.filter(n => n.pal);
+  $("defAut").innerHTML = `<p><b>Q</b> = {q0, …, q${nodos.length-1}} ∪ {q∅}: ${nodos.length+1} estados</p>
+    <p><b>Σ</b> = <code>{${sigma.map(ver).map(esc).join(", ")}}</code> (${sigma.length} símbolos)</p>
+    <p><b>q0</b> = raíz del trie · <b>|F|</b> = ${F.length} estados de aceptación</p>
+    <p><b>F</b> = <code>{${F.map(n => "q"+n.id).join(", ")}}</code></p>
+    <p><b>δ</b>: ${nodos.length-1} transiciones del árbol; todas las demás van a q∅.</p>`;
+  let filas = `<tr><td>0</td><td>ε</td><td>inicio en q0</td><td>${raiz.pal ? "Sí" : "No"}</td></tr>`;
+  let muerto = false, i = 0, previo = "q0";
+  for(const c of p){
+    const paso = muerto ? null : t.pasos[i];
+    const destino = paso && paso.hacia ? "q"+paso.hacia.id : "q∅";
+    const acepta = paso && paso.hacia && paso.hacia.pal;
+    filas += `<tr><td>${i+1}</td><td><code>${esc(ver(c))}</code></td><td>δ(${previo}, ${esc(ver(c))}) = ${destino}</td><td>${acepta ? "Sí: «" + esc(paso.hacia.pal.w) + "»" : "No"}</td></tr>`;
+    if(destino === "q∅") muerto = true;
+    previo = destino; i++;
+  }
+  $("trazaAut").innerHTML = filas;
+  const n = t.nodo;
+  $("estadoAut").innerHTML = !n ? `<span class="estado no">Rechazada</span> El autómata cayó en q∅: no es nombre ni prefijo.`
+    : n.pal ? `<span class="estado ok">Aceptada</span> Estado q${n.id} ∈ F: «${esc(n.pal.w)}» está en la lista.`
+    : `<span class="estado">Prefijo válido</span> Estado q${n.id} ∉ F: aún no forma una palabra completa.`;
+  $("salidas").innerHTML = n && n.hijos.length ? n.hijos.map(h => `<code>δ(q${n.id}, ${esc(ver(h.ch))}) = q${h.id}</code>`).join(" ") : "Ninguna: toda letra adicional lleva a q∅.";
+}
+function pintarLista(){
+  $("nPal").textContent = palabras.length;
+  $("lista").innerHTML = ordenadas.map((x,i) => `<button type="button" data-i="${i}"><span>${esc(x.w)}</span><small>${x.f}</small></button>`).join("");
+}
+
+/* ---------- Acciones ---------- */
+function detener(){ clearInterval(timer); timer = null; $("animar").textContent = "▶ Animar escritura"; }
+function escribir(v){ detener(); $("q").value = v; actualizar(true); }
+function usar(p){
+  const x = palabras.find(y => y.key === p.key);
+  x.f++; guardar(); escribir(x.w); pintarLista();
+  $("aviso").textContent = `Se sumó un uso a ${x.w}: ahora tiene ${x.f}.`;
+}
+$("q").addEventListener("input", () => { detener(); actualizar(true); });
+$("q").addEventListener("keydown", e => {
+  const r = actual.h.res;
+  if((e.key === "ArrowDown" || e.key === "ArrowUp") && r.length){
+    e.preventDefault();
+    sel = e.key === "ArrowDown" ? (sel+1) % r.length : (sel <= 0 ? r.length-1 : sel-1);
+    pintarSugerencias();
+  }else if(e.key === "Enter" && r.length){ e.preventDefault(); usar(r[Math.max(0,sel)]); }
+  else if(e.key === "Tab" && !e.shiftKey && r.length && $("q").value){
+    const v = r[Math.max(0,sel)].w;
+    if(v !== $("q").value){ e.preventDefault(); escribir(v); }
+  }else if(e.key === "Escape") escribir("");
+});
+$("sug").addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if(li) usar(actual.h.res[+li.dataset.i]); });
+$("arbol").addEventListener("click", e => { const g = e.target.closest(".nodo"); if(g) escribir(prefijoDe(nodos[+g.dataset.id])); });
+["","a","da","jo","lu","an","x"].forEach(s => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = s || "Limpiar"; b.onclick = () => escribir(s); $("chips").appendChild(b);
+});
+$("resetAcum").onclick = () => { acumulado = 0; $("mAcum").textContent = 0; };
+$("mas").onclick = () => { escala = Math.min(2.5, escala*1.2); aplicarEscala(); marcarArbol(); };
+$("menos").onclick = () => { escala = Math.max(.25, escala/1.2); aplicarEscala(); marcarArbol(); };
+$("ajustar").onclick = () => { ajustar(); $("lienzo").scrollTo({left:0, top:0}); };
+$("animar").onclick = () => {
+  if(timer){ detener(); return; }
+  const meta = $("q").value || "Daniel";
+  let i = 0;
+  $("q").value = ""; actualizar(false);
+  $("animar").textContent = "■ Detener";
+  timer = setInterval(() => {
+    $("q").value = meta.slice(0, ++i); actualizar(true);
+    if(i >= meta.length) detener();
+  }, 800);
+};
+document.querySelectorAll("[role=tab]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[role=tab]").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".panel").forEach(x => x.hidden = x.id !== b.dataset.p);
+});
+function reconstruir(){ construir(); dibujarArbol(); pintarLista(); actualizar(false); }
+$("fAdd").addEventListener("submit", e => {
+  e.preventDefault();
+  const w = $("nueva").value.trim().replace(/\s+/g," ");
+  if(!valida(w)){ $("avisoAdd").textContent = "Usa solo letras y espacios (máximo 30 caracteres)."; return; }
+  const key = normalizar(w);
+  if(palabras.some(x => x.key === key)){ $("avisoAdd").textContent = `«${w}» ya está en la lista.`; return; }
+  detener(); palabras.push({w, key, f:0}); guardar(); $("q").value = w; reconstruir();
+  $("nueva").value = ""; $("avisoAdd").textContent = `«${w}» se insertó en el trie.`;
+});
+$("lista").addEventListener("click", e => { const b = e.target.closest("button[data-i]"); if(b) escribir(ordenadas[+b.dataset.i].w); });
+$("ceros").onclick = () => { detener(); palabras.forEach(x => x.f = 0); guardar(); reconstruir(); $("avisoAdd").textContent = "Todos los usos están en cero."; };
+$("restaurar").onclick = () => { detener(); palabras = original(); guardar(); $("q").value = ""; acumulado = 0; reconstruir(); $("avisoAdd").textContent = "Se restauraron la lista y los usos de ejemplo."; };
+
+/* ---------- Me gusta y modo oscuro ---------- */
+function guardarPref(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function leerPref(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+let gusta = leerPref("autocompletado-megusta") === "si";
+function pintarLike(){
+  $("like").setAttribute("aria-pressed", gusta);
+  $("corazon").textContent = gusta ? "♥" : "♡";
+  $("nLikes").textContent = gusta ? 1 : 0;
+}
+$("like").onclick = () => {
+  gusta = !gusta; guardarPref("autocompletado-megusta", gusta ? "si" : "no"); pintarLike();
+  const c = $("corazon"); c.classList.remove("latido");
+  if(gusta){ void c.offsetWidth; c.classList.add("latido"); }
+};
+function pintarTema(){
+  const oscuro = document.documentElement.dataset.tema === "oscuro";
+  $("tema").textContent = oscuro ? "☀️ Modo claro" : "🌙 Modo oscuro";
+}
+$("tema").onclick = () => {
+  const oscuro = document.documentElement.dataset.tema !== "oscuro";
+  document.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+  guardarPref("autocompletado-tema", oscuro ? "oscuro" : "claro"); pintarTema();
+};
+pintarLike(); pintarTema();
+
+construir(); dibujarArbol(); pintarLista();
+if(window.innerWidth > 820) ajustar(); else { escala = .85; aplicarEscala(); }
+actualizar(false);
+window.addEventListener("resize", () => { if(window.innerWidth > 820){ ajustar(); } });
+</script>
+</body>
+</html>
